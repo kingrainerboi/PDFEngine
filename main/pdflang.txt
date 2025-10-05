@@ -2,13 +2,15 @@ title "MyTestPDF.pdf"
 
 page-style {
 
-    fontsize 24
+    fontsize "24"
     background-image "bg.jpeg"
     page-layout "portrait"
 }
 
 create page 1 {
 
+    add title "THIS IS A TITL "
+    add space "50"
 
     add text
     "Welcome to My Test PDF!

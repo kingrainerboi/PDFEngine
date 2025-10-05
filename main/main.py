@@ -40,6 +40,9 @@ class PDFEngine:
         self.default_page_layout = portrait
         self.default_page_size = A4
 
+        self.default_title_size = 25
+        self.default_title_font = "Helvetica"
+
 
     def read(self):
         with open(self.txt_file, "r") as file:
@@ -50,7 +53,7 @@ class PDFEngine:
         Parse default-style block for font, fontsize, background, page layout and size
         """
         font_match = re.search(r'font\s+"?([^"\n]+)"?', block)
-        size_match = re.search(r'fontsize\s+(\d+)', block)
+        size_match = re.search(r'fontsize\s+"?([^"\n]+)"?', block)
         background_image = re.search(r'background-image\s+"?([^"\n]+)"?', block)
         page_layout = re.search(r'page-layout\s+"?([^"\n]+)"?', block)
         page_size = re.search(r'page-size\s+"?([^"\n]+)"?', block)
@@ -72,14 +75,46 @@ class PDFEngine:
         match command:
             case "text":
                 width, _ = c._pagesize
-                current_y = wrapper(c, textwrap.dedent(content), self.default_x, current_y, self.default_font,
-                                         self.default_font_size, width)
-            case "background-image":
+                current_y = wrapper(
+                    c,
+                    textwrap.dedent(content),
+                    self.default_x,
+                    current_y,
+                    self.default_font,
+                    self.default_font_size,
+                    width
+                )
+            case "title":
+                width, _ = c._pagesize
+                current_y = wrapper(
+                    c,
+                    textwrap.dedent(content),
+                    self.default_x,
+                    current_y,
+                    self.default_title_font,
+                    self.default_title_size,
+                    width
+
+                )
+
+            case "space":
+                width, _ = c._pagesize
+                text = ""
+                current_y = wrapper(
+                    c,
+                    text,
+                    self.default_x,
+                    current_y - float(content),
+                    self.default_font,
+                    self.default_font_size,
+                    width
+                )
                 print(content)
-                width,height = c._pagesize
+
+            case "background-image":
+                width, height = c._pagesize
                 c.drawImage(content, 0, 0, width=width, height=height)
 
-                pass
             case _:
                 print(f"Unknown add command: {command}")
 
@@ -90,7 +125,7 @@ class PDFEngine:
 
         match block_type:
             case "page":
-                add_commands = re.findall(r'add\s+([\w-]+)\s+"([\s\S]*?)"', block_content, re.MULTILINE)
+                add_commands = re.findall(r'add\s+([\w-]+)\s+"([\s\S\d]*?)"', block_content, re.MULTILINE)
                 for command, content in add_commands:
                     current_y = self.add(command, content, c, current_y)
 
