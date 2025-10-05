@@ -1,0 +1,2 @@
+1.make a coding lang for pdf that an ai and a human can understand
+2.make it simple
