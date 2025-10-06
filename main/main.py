@@ -71,7 +71,25 @@ class PDFEngine:
             size_str = page_size.group(1).lower()
             self.default_page_size = PAGE_SIZES.get(size_str, A4)  # fallback to A4
 
-    def add(self, command, content, c, current_y):
+    def add(self, command, content, c, current_y, style_block=None):
+        # --- Inline style overrides ---
+        font_override = self.default_font
+        font_size_override = self.default_font_size
+
+        if style_block:
+            # Finds all style entries like: font size "40", font name "Courier", etc.
+            style_pairs = re.findall(r'([\w-]+)\s+"([^"]+)"', style_block, re.MULTILINE)
+            for key, value in style_pairs:
+                match key.lower():
+                    case "font":
+                        font_override = value
+                    case "size" | "fontsize" | "font-size":
+                        try:
+                            font_size_override = int(value.strip())
+                        except ValueError:
+                            print(f"Warning: invalid font size '{value}'")
+
+        # --- Apply commands ---
         match command:
             case "text":
                 width, _ = c._pagesize
@@ -80,8 +98,8 @@ class PDFEngine:
                     textwrap.dedent(content),
                     self.default_x,
                     current_y,
-                    self.default_font,
-                    self.default_font_size,
+                    font_override,
+                    font_size_override,
                     width
                 )
             case "title":
@@ -94,40 +112,37 @@ class PDFEngine:
                     self.default_title_font,
                     self.default_title_size,
                     width
-
                 )
-
             case "space":
                 width, _ = c._pagesize
-                text = ""
                 current_y = wrapper(
                     c,
-                    text,
+                    "",
                     self.default_x,
                     current_y - float(content),
                     self.default_font,
                     self.default_font_size,
                     width
                 )
-                print(content)
-
             case "background-image":
                 width, height = c._pagesize
                 c.drawImage(content, 0, 0, width=width, height=height)
-
             case _:
                 print(f"Unknown add command: {command}")
 
         return current_y
-
     def create(self, block_type, block_content, c):
         current_y = self.default_y
 
         match block_type:
             case "page":
-                add_commands = re.findall(r'add\s+([\w-]+)\s+"([\s\S\d]*?)"', block_content, re.MULTILINE)
-                for command, content in add_commands:
-                    current_y = self.add(command, content, c, current_y)
+                add_commands = re.findall(
+                    r'add\s+([\w-]+)(?:\(([\s\S]*?)\))?\s*"([\s\S\d]*?)"',
+                    block_content,
+                    re.MULTILINE
+                )
+                for command, style_block, content in add_commands:
+                    current_y = self.add(command, content, c, current_y, style_block)
 
                 c.showPage()
 

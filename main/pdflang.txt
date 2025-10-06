@@ -8,8 +8,13 @@ page-style {
 }
 
 create page 1 {
+    add space"50"
+    add text(
+    font size   "80 "
+     ) "size is 4yyyyy00"
 
     add title "THIS IS A TITL "
+
     add space "50"
 
     add text
