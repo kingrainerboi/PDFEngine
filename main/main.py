@@ -18,31 +18,82 @@ PAGE_LAYOUTS = {
 
 
 def wrapper(c, text, x, y, font, font_size, color, page_width, align="left", line_spacing=5):
+    from reportlab.lib.colors import black
     c.setFont(font, font_size)
     c.setFillColor(get_color(color))
     char_width = font_size * 0.55  # adaptive scaling
     usable_width = page_width - (x * 2)
     max_chars_per_line = max(10, int(usable_width / char_width))
 
+    # Split into lines
     for line in text.splitlines():
         line = line.lstrip()
         wrapped_lines = textwrap.wrap(line, width=max_chars_per_line)
 
         for wline in wrapped_lines:
-            text_width = c.stringWidth(wline, font, font_size)
+            # Handle INLINE tags
+            if '<<<INLINE::' in wline:
+                segments = re.split(r'(<<<INLINE::.*?::.*?>>>)', wline)
+                text_x = x
 
-            # Alignment math
-            match align:
-                case "center":
-                    text_x = (page_width - text_width) / 2
-                case "right":
-                    text_x = page_width - text_width - x
-                case _:
-                    text_x = x  # left
+                # Calculate alignment width first
+                raw_text = re.sub(r'<<<INLINE::.*?::.*?>>>', '', wline)
+                text_width = c.stringWidth(raw_text, font, font_size)
 
-            c.drawString(text_x, y, wline)
+                match align:
+                    case "center":
+                        text_x = (page_width - text_width) / 2
+                    case "right":
+                        text_x = page_width - text_width - x
+                    case _:
+                        text_x = x
+
+                for seg in segments:
+                    if not seg:
+                        continue
+                    if seg.startswith('<<<INLINE::'):
+                        tag, value = re.findall(r'<<<INLINE::(.*?)::(.*?)>>>', seg)[0]
+
+                        # Example: inline color
+                        if tag.lower() == "color":
+                            c.setFillColor(get_color(value))
+                        # Example: inline size
+                        elif tag.lower() == "size":
+                            try:
+                                c.setFont(font, int(value))
+                            except:
+                                c.setFont(font, font_size)
+                        # Draw inline content value as text
+                        else:
+                            c.setFont(font, font_size)
+                            c.setFillColor(get_color(color))
+                            c.drawString(text_x, y, f"({tag}:{value})")  # fallback display
+                        # Draw actual inline text (value)
+                        c.drawString(text_x, y, value)
+                        text_x += c.stringWidth(value, font, font_size)
+                    else:
+                        c.setFont(font, font_size)
+                        c.setFillColor(get_color(color))
+                        c.drawString(text_x, y, seg)
+                        text_x += c.stringWidth(seg, font, font_size)
+
+            else:
+                # No inline styling, normal line
+                text_width = c.stringWidth(wline, font, font_size)
+                match align:
+                    case "center":
+                        text_x = (page_width - text_width) / 2
+                    case "right":
+                        text_x = page_width - text_width - x
+                    case _:
+                        text_x = x
+
+                c.drawString(text_x, y, wline)
+
             y -= font_size + line_spacing
+
     return y
+
 
 class PDFEngine:
     def __init__(self, txt_file):
@@ -90,20 +141,36 @@ class PDFEngine:
             self.default_page_size = PAGE_SIZES.get(size_str, A4)  # fallback to A4
 
     def add(self, command, content, c, current_y, style_block=None):
-        # --- Inline style overrides ---
+        # --- Inline and block-level style defaults ---
         font_override = self.default_font
         font_size_override = self.default_font_size
         font_color_override = self.default_font_color
         font_align_override = self.default_text_align
 
         if style_block:
-            # Extract all 4-level style instructions
+            # --- Handle inline tags like ^age[753 BC] ---
+            inline_tags = re.findall(r'\^(\w+)\[([^\]]+)\]', content)
+            for tag, value in inline_tags:
+                style_match = re.search(rf'{tag}\s*\(([\s\S]*?)\)', style_block or "", re.MULTILINE)
+                if style_match:
+                    sub_style = style_match.group(1)
+                    # Extract parameters like color "blue" or size "30"
+                    style_params = dict(re.findall(r'(\w+)\s+"([^"]+)"', sub_style))
+
+                    # Replace ^tag[value] with inline placeholder (removes original text)
+                    # Use spaces if you prefer to preserve layout width visually
+                    content = re.sub(
+                        rf'\^{tag}\[{re.escape(value)}\]',
+                        f'<<<INLINE::{tag}::{value}>>>',
+                        content
+                    )
+
+            # --- Handle block-level style overrides ---
             style_quads = re.findall(r'(\w+)(?:\s+(\w+))?\s+"([^"]+)"', style_block, re.MULTILINE)
             for incom, typecom, val in style_quads:
                 incom = incom.strip().lower()
                 typecom = (typecom.strip().lower() if typecom else None)
                 val = val.strip()
-
 
                 match command:
                     case "text":
@@ -121,13 +188,9 @@ class PDFEngine:
                                         except ValueError:
                                             print(f"Invalid color '{val}'")
                                     case "align":
-                                        try:
-                                            font_align_override = val
-                                        except ValueError:
-                                            print("not alignment type")
+                                        font_align_override = val
                                     case "style" | None:
                                         font_override = val
-
 
                     case "title":
                         match incom:
@@ -141,8 +204,8 @@ class PDFEngine:
 
                     case _:
                         print(f"Unknown style: {incom} {typecom or ''}")
-            # --- Apply commands ---
 
+        # --- Apply the add command ---
         match command:
             case "text":
                 width, _ = c._pagesize
@@ -157,6 +220,7 @@ class PDFEngine:
                     width,
                     font_align_override
                 )
+
             case "title":
                 width, _ = c._pagesize
                 current_y = wrapper(
@@ -170,6 +234,7 @@ class PDFEngine:
                     width,
                     font_align_override
                 )
+
             case "space":
                 width, _ = c._pagesize
                 current_y = wrapper(
@@ -183,18 +248,19 @@ class PDFEngine:
                     width,
                     font_align_override
                 )
+
             case "background-image":
                 if os.path.exists(content):
                     width, height = c._pagesize
                     c.drawImage(content, 0, 0, width=width, height=height)
                 else:
-                    print("no")
-
+                    print("Warning: background image not found.")
 
             case _:
                 print(f"Unknown add command: {command}")
 
         return current_y
+
 
     def create(self, block_type, block_content, c):
         current_y = self.default_y

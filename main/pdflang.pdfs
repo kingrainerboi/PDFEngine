@@ -16,7 +16,8 @@ create page 1 {
     add space "40"
 
     add text(
-        text size "20"
+
+        text size "5"
         text color "darkred"
         text align "center"
     ) "From Myth to Empire"
@@ -24,10 +25,13 @@ create page 1 {
     add space "60"
 
     add text(
-        text size "18"
+        text size "5"
         text color "black"
         text align "center"
-    ) "According to legend, Rome was founded in 753 BC by the twin brothers
+        age (
+        text size "50"
+        )
+    ) "According to legend, Rome was founded in ^age[753 BC] by the twin brothers
     Romulus and Remus — descendants of Aeneas, a Trojan hero.
     Raised by a she-wolf, the twins quarreled over leadership.
     Romulus killed Remus and became the first king of Rome."
