@@ -38,16 +38,20 @@ COLORS = {
 
 def get_color(value):
     """
-    Convert a string into a ReportLab color object.
+    Convert a string or Color object into a ReportLab color object.
 
     Supports:
     - Named colors (e.g., "red", "blue", "gold")
     - Hex colors (e.g., "#FF00FF", "FF00FF")
     - RGB format (e.g., "rgb(255,0,128)")
-
-    Returns a ReportLab color object or black if invalid.
+    - Already a Color object (returned as-is)
     """
-    if not value:
+    # --- If it's already a Color object, return directly ---
+    if isinstance(value, colors.Color):
+        return value
+
+    # --- If None or invalid, fallback to black ---
+    if not isinstance(value, str):
         return colors.black
 
     value = value.strip().lower()

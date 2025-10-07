@@ -1,0 +1,94 @@
+# Custom PDF Language Documentation
+
+## title
+Sets the name of the output PDF file.
+
+Syntax:
+    title "<filename>.pdf"
+
+Example:
+    title "MyTestPDF.pdf"
+
+
+## page-style
+Defines default styles for all pages.
+
+Syntax:
+    page-style {
+        font-size "<number>"
+        background-image "<filename>"
+        page-layout "<layout>"
+    }
+
+Notes:
+- font-size sets the default text size.
+- background-image sets the background image for all pages.
+- page-layout can be "portrait" or "landscape".
+
+Example:
+    page-style {
+        font-size "24"
+        background-image "bg.jpeg"
+        page-layout "portrait"
+    }
+
+
+## create
+Used to create new elements such as pages.
+
+Syntax:
+    create <type> <identifier> { ... }
+
+Supported Types:
+- page — creates a new page.
+
+Example:
+    create page 1 {
+        ...
+    }
+
+
+## add
+Adds elements to a page. Must be used inside `create page`.
+
+Syntax:
+    add <element> [ ( <styles> ) ] "<value>"
+
+Supported Elements:
+- text — adds text content.
+- title — adds a large title.
+- space — adds vertical space between elements.
+
+Examples:
+    add space "50"
+
+    add title "THIS IS A TITLE"
+
+    add text(
+        text size "20"
+        text color "blue"
+        text align "right"
+    ) "Sample text content."
+
+    add text
+    "Multiline
+    text
+    block."
+
+
+## Text Styling (Inside add text)
+Optional styles that can be used inside parentheses `()`.
+
+Supported styles:
+- text size "<number>"
+- text color "<color>"
+- text align "<left|center|right>"
+
+Example:
+    add text(
+        text size "18"
+        text color "red"
+        text align "center"
+    ) "Centered red text."
+
+
